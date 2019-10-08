@@ -4,7 +4,7 @@ const PREFIX ='K!';
 
 var fs = require('fs');
 var commandlist = fs.readFileSync('Kanna Kamui Help.txt', 'utf8');
-var meme = fs.readFileSync('meme.txt', 'utf8');
+/*var meme = fs.readFileSync('meme.txt', 'utf8');*/
 function emoji (id) { return clientInformation.emojis.get(id).toString (); }
 
 bot.on('ready',() => { console.log("I'm ready to send nudes!"); } )
@@ -32,11 +32,15 @@ bot.on('message', message =>{
 };
 });
 
+
+let ImageArray = JSON.parse(fs.readFileSync('meme.json'));
+
+
 bot.on('message', message =>{
     if(message.content.startsWith(PREFIX + "aotmeme")){
         number = 19;
         var random = Math.floor (Math.random() * (number));
-        const Array = ['https://media3.giphy.com/media/GyChnsTnX8bDi/giphy.gif',
+        /*const Array = ['https://media3.giphy.com/media/GyChnsTnX8bDi/giphy.gif',
         'https://cdn.myanimelist.net/s/common/uploaded_files/1452670440-e83dfccf7c336129d27c54ccd4d83242.gif',
         'https://i.kym-cdn.com/photos/images/original/001/241/247/c04.gif',
         'http://25.media.tumblr.com/7a30e9bf8a4eba2cf1f466de90f82471/tumblr_ms3dt2Hz5A1rzjb4go1_500.gif',
@@ -55,10 +59,9 @@ bot.on('message', message =>{
         'https://66.media.tumblr.com/49db575ffcab064198fa0dd006ac7038/tumblr_ook968xrUc1w8pxjzo1_400.gifv',
         'http://37.media.tumblr.com/c48924c62d16c191260166a30ae394e7/tumblr_n48hezByEP1sg146vo1_250.gif ',
         'https://i.kym-cdn.com/photos/images/newsfeed/000/586/078/d61.gif']
-    
-        
+    */
         const embed = new Discord.RichEmbed()
-                    .setImage(Array[random])
+                    .setImage(ImageArray[random])
                     .setFooter('Powered by pinco.il.mago')
                     .setTimestamp()
                     message.channel.send(embed)
