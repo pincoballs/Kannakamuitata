@@ -1,11 +1,154 @@
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 const PREFIX ='K!';
-
+const YouTube = require('simple-youtube-api');
+const ytdl = require('ytdl-core'); 
 var fs = require('fs');
 var commandlist = fs.readFileSync('Kanna Kamui Help.txt', 'utf8');
 /*var meme = fs.readFileSync('meme.txt', 'utf8');*/
 function emoji (id) { return clientInformation.emojis.get(id).toString (); }
+const youtube = new YouTube(process.env.GOOGLE_API_KEY);
+const queue = new Map();
+
+bot.on('message', async message => {
+	if (message.author.bot) return;
+	if (!message.content.startsWith(PREFIX)) return;
+
+	const serverQueue = queue.get(message.guild.id);
+
+	if (message.content.startsWith(`${PREFIX}play`)) {
+		execute(message, serverQueue);
+		return;
+	} else if (message.content.startsWith(`${PREFIX}skip`)) {
+		skip(message, serverQueue);
+		return;
+	} else if (message.content.startsWith(`${PREFIX}stop`)) {
+		stop(message, serverQueue);
+		return;
+    }else if(message.content.startsWith(`${PREFIX}np`)){
+        if(!serverQueue)return message.channel.send('Non ci sono canzoni attualmente in esecuzione');
+        return message.channel.send(`Now playing ${serverQueue.songs[0].title}`);
+        
+    }
+    else if(message.content.startsWith(`${PREFIX}queue`)){
+        if(!serverQueue)return message.channel.send('Non ci sono canzoni attualmente in esecuzione');
+        return message.channel.send(`
+        **SONG QUEUE**
+        ${serverQueue.songs.map(song => `**-** ${song.title}`).join('\n')}
+        **Now Playing** ${serverQueue.songs[0].title}`);
+    }else if(message.content.startsWith(`${PREFIX}pause`)){
+        if(serverQueue && serverQueue.playing){
+            serverQueue.playing = false;
+            serverQueue.connection.dispatcher.pause();
+            return message.channel.send('Music Paused');}return message.channel.send('Non ci sono canzoni attualmente in esecuzione');
+    }else if(message.content.startsWith(`${PREFIX}resume`)){
+        if(serverQueue && !serverQueue.playing){
+            serverQueue.playing = true;
+            serverQueue.connection.dispatcher.resume();
+            return message.channel.send('Music Resmed');
+        }return message.channel.send('Non ci sono canzoni attualmente in esecuzione');
+    }
+    else {
+		message.channel.send('è tanto difficile inserire un comando valido ??!!')
+	} 
+    
+    
+});
+
+async function execute(message, serverQueue) {
+	const args = message.content.split(' ');
+    const searchString = args.slice(1).join(' ');
+    const url = args[1].replace(/<(.+)>/g, '$1');
+	const voiceChannel = message.member.voiceChannel;
+	if (!voiceChannel) return message.channel.send('Devi essere in un voicechannel per ascoltare la musica.... coglione!');
+	const permissions = voiceChannel.permissionsFor(message.client.user);
+	if (!permissions.has('CONNECT') || !permissions.has('SPEAK')) {
+		return message.channel.send('Ho bisogno dei permessi di "Parlare" e "Connettere in un voicechannel"!');
+    }
+    try{
+        var video = await youtube.getVideo(url);
+    }catch(error)
+    {
+    try {
+            var videos = await youtube.searchVideos(searchString, 1);
+            var video = await youtube.getVideoByID(videos[0].id);
+            message.channel.send(`${videos[0].title} , ${videos[0].url}`);
+
+    }catch (err){
+        console.error(err);
+        return message.channel.send('Nessun risultato.');
+    }}
+    	const song = {
+            id: video.id,
+		title: video.title,
+		url: `https://www.youtube.com/watch?v=${video.id}`
+	};
+
+	if (!serverQueue) {
+		const queueContruct = {
+			textChannel: message.channel,
+			voiceChannel: voiceChannel,
+			connection: null,
+			songs: [],
+			volume: 5,
+			playing: true,
+		};
+
+		queue.set(message.guild.id, queueContruct);
+
+		queueContruct.songs.push(song);
+
+		try {
+			var connection = await voiceChannel.join();
+			queueContruct.connection = connection;
+			play(message.guild, queueContruct.songs[0]);
+		} catch (err) {
+			console.log(err);
+			queue.delete(message.guild.id);
+			return message.channel.send(err);
+		}
+	} else {
+		serverQueue.songs.push(song);
+		console.log(serverQueue.songs);
+		return message.channel.send(`${song.title} è stato aggiunto alla coda!`);
+	}
+
+}
+
+function skip(message, serverQueue) {
+	if (!message.member.voiceChannel) return message.channel.send('Devi essere in un voicechannel per skippare.... coglione!');
+	if (!serverQueue) return message.channel.send('Non ci sono canzoni da skippare!');
+	serverQueue.connection.dispatcher.end();
+}
+
+function stop(message, serverQueue) {
+	if (!message.member.voiceChannel) return message.channel.send('Devi essere in un voicechannel per fermare la musica.... coglione!');
+	serverQueue.songs = [];
+	serverQueue.connection.dispatcher.end();
+}
+
+function play(guild, song) {
+	const serverQueue = queue.get(guild.id);
+
+	if (!song) {
+		serverQueue.voiceChannel.leave();
+		queue.delete(guild.id);
+		return;
+	}
+
+	const dispatcher = serverQueue.connection.playStream(ytdl(song.url))
+		.on('end', () => {
+			console.log('Music ended!');
+			serverQueue.songs.shift();
+			play(guild, serverQueue.songs[0]);
+		})
+		.on('error', error => {
+			console.error(error);
+		});
+	dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
+}
+
+
 
 bot.on('ready',() => { console.log("I'm ready to send nudes!"); } )
 
